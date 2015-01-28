@@ -76,28 +76,32 @@ def QGISProcessFactory(alg_name):
 
     def process_init(self):
         # Automatically init the process attributes
+        # Start with help for description
         isText, help = self.alg.help()
-        if not isText :
+        if not isText and help is not None:
            with open(help, 'r') as helpFile :
               help = helpFile.read()
+        # Init WPS Process
         WPSProcess.__init__(self,
             identifier=alg_name, # must be same, as filename
             title=escape(alg.name),
             version = "0.1",
             storeSupported = "true",
             statusSupported = "true",
-            abstract= '<![CDATA[' + (help == None or str(alg) and help) + ']]>',
+            abstract= '<![CDATA[' + (help is None and str(alg) or str(help)) + ']]>',
             grassLocation=False)
-        self.alg = alg
+
+        # Test parameters
         if not len( self.alg.parameters ):
             self.alg.defineCharacteristics()
+
         # Add I/O
         i = 1
         for parm in alg.parameters:
+            minOccurs = 1
             if getattr(parm, 'optional', False):
                 minOccurs = 0
-            else:
-                minOccurs = 1
+                
             # TODO: create "LiteralValue", "ComplexValue" or "BoundingBoxValue"
             # this can be done checking the class:
             # parm.__class__, one of
@@ -112,18 +116,16 @@ def QGISProcessFactory(alg_name):
                 self._inputs['Input%s' % i] = self.addBBoxInput(parm.name, parm.description,
                     minOccurs=minOccurs)
             else:
+                type = types.StringType
                 if parm.__class__.__name__ == 'ParameterBoolean':
                     type = types.BooleanType
                 elif  parm.__class__.__name__ =='ParameterNumber':
                     type = types.FloatType
-                else:
-                    type = types.StringType
                 self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
                                                 minOccurs=minOccurs,
                                                 type=type,
                                                 default=getattr(parm, 'default', None))
             i += 1
-
         i = 1
         for parm in alg.outputs:
             # TODO: create "LiteralOutput", "ComplexOutput" or "BoundingBoxOutput"
@@ -146,10 +148,9 @@ def QGISProcessFactory(alg_name):
                 self._outputs['Output%s' % i] = self.addBBoxOutput(parm.name, parm.description,
                     minOccurs=minOccurs)
             else:
+                type = types.StringType
                 if  parm.__class__.__name__ =='OutputNumber':
                     type = types.FloatType
-                else:
-                    type = types.StringType
                 self._outputs['Output%s' % i] = self.addLiteralOutput(parm.name, parm.description,
                                                 type=type)
             i += 1
