@@ -112,9 +112,27 @@ def QGISProcessFactory(alg_name):
             elif parm.__class__.__name__ == 'ParameterRaster':
                 self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
                     formats = [{'mimeType':'image/tiff'}])
+            elif parm.__class__.__name__ == 'ParameterTable':
+                self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                    formats = [{'mimeType':'text/csv'}])
             elif parm.__class__.__name__ == 'ParameterExtent':
                 self._inputs['Input%s' % i] = self.addBBoxInput(parm.name, parm.description,
                     minOccurs=minOccurs)
+            elif parm.__class__.__name__ == 'ParameterSelection':
+                self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                                                minOccurs=minOccurs,
+                                                type=types.StringType,
+                                                values=parm.options,
+                                                default=getattr(parm, 'default', None))
+            elif parm.__class__.__name__ == 'ParameterRange':
+                tokens = self.value.split(',')
+                n1 = float(tokens[0])
+                n2 = float(tokens[1])
+                self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                                                minOccurs=minOccurs,
+                                                type=types.StringType,
+                                                values=[[n1,n2]],
+                                                default=n1)
             else:
                 type = types.StringType
                 if parm.__class__.__name__ == 'ParameterBoolean':
