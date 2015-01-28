@@ -44,12 +44,21 @@ QgsApplication.initQgis()
 qa = QApplication( sys.argv )
 
 from processing.core.Processing import Processing
+from processing.core.ProcessingConfig import ProcessingConfig, Setting
 from processing.tools.general import *
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 Processing.initialize()
+
+# load QGIS Processing config
+for opt in config.config.options( 'qgis_processing' ):
+    opt_val = config.getConfigValue( 'qgis_processing', opt )
+    ProcessingConfig.setSettingValue( opt.upper(), opt_val )
+
+# Relaod algorithms
+Processing.loadAlgorithms()
 
 
 def QGISProcessFactory(alg_name):
@@ -80,8 +89,8 @@ def QGISProcessFactory(alg_name):
             abstract= '<![CDATA[' + (help == None or str(alg) and help) + ']]>',
             grassLocation=False)
         self.alg = alg
-        if not len( alg.parameters ):
-            alg.defineCharacteristics()
+        if not len( self.alg.parameters ):
+            self.alg.defineCharacteristics()
         # Add I/O
         i = 1
         for parm in alg.parameters:
@@ -156,6 +165,7 @@ def QGISProcessFactory(alg_name):
     def execute(self):
         # create a project
         p = QgsProject.instance()
+        mlr = QgsMapLayerRegistry.instance()
         # Run alg with params
         # TODO: get args
         args = {}
@@ -173,6 +183,7 @@ def QGISProcessFactory(alg_name):
                     o.close()
                 # get layer
                 layer = QgsVectorLayer( fileName+'.gml', fileInfo.baseName(), 'ogr' )
+                mlr.addMapLayer( layer, False )
                 args[v.identifier] = fileName+'.gml'
             else:
                 args[v.identifier] = v.getValue()
@@ -180,6 +191,9 @@ def QGISProcessFactory(alg_name):
         for k in self._outputs:
             v = getattr(self, k)
             args[v.identifier] = None
+        
+        if not len( self.alg.parameters ):
+            self.alg.defineCharacteristics()
 
         tAlg = Processing.runAlgorithm(self.alg, None, args)
         # if runalg failed return exception message
@@ -225,12 +239,54 @@ def QGISProcessFactory(alg_name):
         #logging.info('TypeError %sProcess: %s' % (class_name, e))
         return None
 
+# get the providers to publish
+providerList = config.getConfigValue( 'qgis', 'providers' )
+if providerList :
+    providerList = providerList.split(',')
+
+# get the algorithm filter
 # Set text to None to add all the QGIS Processing providers
-text = 'buffer' #None
+algsFilter = config.getConfigValue( 'qgis', 'algs_filter' ) #'random' #'modeler:' #None
 idx = 1
-for provider in Processing.algs.values():
-    sortedlist = sorted(provider.values(), key=lambda alg: alg.name)
+for provider in Processing.providers:
+    if providerList and provider.getName() not in providerList :
+        #logging.info( provider.getName()+' not render')
+        continue
+    # verify if the provider is activated
+    if not ProcessingConfig.getSetting( 'ACTIVATE_' + provider.getName().upper().replace(' ', '_') ):
+        #logging.info( provider.getName()+' not active')
+        continue
+    # verify if the provider is well installed
+    if provider.getName() == 'saga':
+        from processing.algs.saga.SagaUtils import SagaUtils
+        msg = SagaUtils.checkSagaIsInstalled()
+        if msg:
+            logging.info(msg)
+            continue
+    elif provider.getName() == 'r':
+        from processing.algs.r.RUtils import RUtils
+        msg = RUtils.checkRIsInstalled()
+        if msg:
+            logging.info(msg)
+            continue
+    elif provider.getName() == 'grass':
+        from processing.algs.grass.GrassUtils import GrassUtils
+        msg = GrassUtils.checkGrassIsInstalled()
+        if msg:
+            logging.info(msg)
+            continue
+    elif provider.getName() == 'grass7':
+        from processing.algs.grass.Grass7Utils import Grass7Utils
+        msg = Grass7Utils.checkGrass7IsInstalled()
+        if msg:
+            logging.info(msg)
+            continue
+    #logging.info( provider.getName()+' active and install')
+    # sort algorithms
+    sortedlist = sorted(provider.algs, key=lambda alg: alg.name)
     for alg in sortedlist:
-        if text is None or text.lower() in alg.name.lower() or text.lower() in str( alg.commandLineName() ):
+        # filter with text
+        if not algsFilter or algsFilter.lower() in alg.name.lower() or algsFilter.lower() in str( alg.commandLineName() ):
+            logging.info(alg.commandLineName())
             globals()['algs%s' % idx] = QGISProcessFactory( str( alg.commandLineName() ) )
             idx += 1
