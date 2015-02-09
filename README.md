@@ -38,16 +38,21 @@ Update **pywps.cgi** to adapt it to your PyWPS and QGIS install :
 * **PYWPS_PROCESSES** to the directory path where you put PyWPS-QGIS-Processing processes directory
 * the path to the PyWPS wps python script
 
-Update **pywps.cfg** like it's describe in PyWPS install and modify the :
+Update **pywps.cfg** like it's describe in PyWPS install.
 
-* \[QGIS\] prefix path to your QGIS install
+We add two section to **pywps.cfg** to configure PyWPS-QGIS-Processing :
 
-In processes, you can :
+* \[qgis\]
 
-* modifiy the qgis_processing.py file to provide more or other QGIS processes
+  * *prefix* path to your QGIS install
+  * *providers* the providers list separated by comma you want to publish
+  * *algs_filter* text to filter algorithms
 
-  * Change the **text** value to *None* to retrieve all the processes
-  * change the **text** value to filter processes
+* \[qgis_processing\]
+
+  * the *ACTIVE_\** activate providers, you can activate providers without publishing them if they are needed in models
+  * the *SAGA_\** are for the SAGA provider configuration
+  * all the providers configuration parameters can be done here.
 
 * add :
 
