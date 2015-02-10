@@ -122,17 +122,17 @@ def QGISProcessFactory(alg_name):
                 self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
                                                 minOccurs=minOccurs,
                                                 type=types.StringType,
-                                                values=parm.options,
                                                 default=getattr(parm, 'default', None))
+                self._inputs['Input%s' % i].values = parm.options
             elif parm.__class__.__name__ == 'ParameterRange':
                 tokens = self.value.split(',')
                 n1 = float(tokens[0])
                 n2 = float(tokens[1])
                 self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
                                                 minOccurs=minOccurs,
-                                                type=types.StringType,
-                                                values=[[n1,n2]],
+                                                type=types.FloatType,
                                                 default=n1)
+                self._inputs['Input%s' % i].values = ((n1,n2))
             else:
                 type = types.StringType
                 if parm.__class__.__name__ == 'ParameterBoolean':
@@ -143,6 +143,8 @@ def QGISProcessFactory(alg_name):
                                                 minOccurs=minOccurs,
                                                 type=type,
                                                 default=getattr(parm, 'default', None))
+                if parm.__class__.__name__ == 'ParameterBoolean':
+                    self._inputs['Input%s' % i].values=(True,False)
             i += 1
         i = 1
         for parm in alg.outputs:
@@ -306,6 +308,6 @@ for provider in Processing.providers:
     for alg in sortedlist:
         # filter with text
         if not algsFilter or algsFilter.lower() in alg.name.lower() or algsFilter.lower() in str( alg.commandLineName() ):
-            logging.info(alg.commandLineName())
+            #logging.info(alg.commandLineName())
             globals()['algs%s' % idx] = QGISProcessFactory( str( alg.commandLineName() ) )
             idx += 1
