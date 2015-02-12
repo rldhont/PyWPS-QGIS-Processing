@@ -45,12 +45,14 @@ We add two section to **pywps.cfg** to configure PyWPS-QGIS-Processing :
 * \[qgis\]
 
   * *prefix* path to your QGIS install
+  * *user_folder* path to the folder where QGIS Processing will generate temporary files
   * *providers* the providers list separated by comma you want to publish
   * *algs_filter* text to filter algorithms
 
 * \[qgis_processing\]
 
   * the *ACTIVE_\** activate providers, you can activate providers without publishing them if they are needed in models
+  * the *\*_FOLDER* for the pathes to your models, scripts and R scripts
   * the *SAGA_\** are for the SAGA provider configuration
   * all the providers configuration parameters can be done here.
 

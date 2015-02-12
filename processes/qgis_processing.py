@@ -33,7 +33,13 @@ from pywps import config
 from pywps.Process import WPSProcess
 from xml.sax.saxutils import escape
 
-QgsApplication( sys.argv, False, os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) ) )
+# Get or define user_folder
+user_folder = os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) )
+if config.config.has_option( 'qgis', 'user_folder' ) :
+    user_folder = config.getConfigValue( 'qgis', 'user_folder' )
+
+# init QgsApplication
+QgsApplication( sys.argv, False, user_folder )
 # supply path to where is your qgis installed
 QgsApplication.setPrefixPath( config.getConfigValue("qgis","prefix"), True )
 
