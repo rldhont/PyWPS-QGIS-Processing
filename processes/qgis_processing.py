@@ -31,6 +31,7 @@ from PyQt4.QtGui import *
 
 from pywps import config
 from pywps.Process import WPSProcess
+from xml.dom import minidom
 from xml.sax.saxutils import escape
 
 # Get or define user_folder
@@ -51,6 +52,7 @@ qa = QApplication( sys.argv )
 
 from processing.core.Processing import Processing
 from processing.core.ProcessingConfig import ProcessingConfig, Setting
+from processing.core.parameters import *
 from processing.tools.general import *
 
 cmd_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0]
@@ -79,6 +81,32 @@ def QGISProcessFactory(alg_name):
     # Sanitize name
     class_name = alg_name.replace(':', '_')
     alg = Processing.getAlgorithm(alg_name)
+    
+    # Get project
+    projectsFolder = config.getConfigValue( 'qgis', 'projects_folder' )
+    projectPath = None
+    if os.path.exists(projectsFolder) and os.path.exists( os.path.join( projectsFolder, class_name+'.qgs' ) ) :
+        projectPath = os.path.join( projectsFolder, class_name+'.qgs' )
+    
+    rasterLayers = []
+    vectorLayers = []
+    if projectPath and os.path.exists( projectPath ) :
+        p_dom = minidom.parse( projectPath )
+        for ml in p_dom.getElementsByTagName('maplayer') :
+            l= {'type':ml.attributes["type"].value,
+                'name':ml.getElementsByTagName('layername')[0].childNodes[0].data,
+                'datasource':ml.getElementsByTagName('datasource')[0].childNodes[0].data,
+                'provider':ml.getElementsByTagName('provider')[0].childNodes[0].data
+            }
+            if l['provider'] in ['ogr','gdal'] :
+                l['datasource'] = os.path.abspath( os.path.join( projectsFolder, l['datasource'] ) )
+                if not os.path.exists( l['datasource'] ) :
+                    continue
+            if l['type'] == "raster" :
+                rasterLayers.append( l )
+            elif l['type'] == "vector" :
+                l['geometry'] = ml.attributes["geometry"].value
+                vectorLayers.append( l )
 
     def process_init(self):
         # Automatically init the process attributes
@@ -113,23 +141,50 @@ def QGISProcessFactory(alg_name):
             # parm.__class__, one of
             # ['Parameter', 'ParameterBoolean', 'ParameterCrs', 'ParameterDataObject', 'ParameterExtent', 'ParameterFile', 'ParameterFixedTable', 'ParameterMultipleInput', 'ParameterNumber', 'ParameterRange', 'ParameterRaster', 'ParameterSelection', 'ParameterString', 'ParameterTable','ParameterTableField', 'ParameterVector']
             if parm.__class__.__name__ == 'ParameterVector':
-                self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
-                    formats = [{'mimeType':'text/xml'}])
+                values = []
+                if vectorLayers and ParameterVector.VECTOR_TYPE_ANY in parm.shapetype :
+                    values = [l['name'] for l in vectorLayers]
+                elif vectorLayers :
+                    if ParameterVector.VECTOR_TYPE_POINT in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Point']
+                    if ParameterVector.VECTOR_TYPE_LINE in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Line']
+                    if ParameterVector.VECTOR_TYPE_POLYGON in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Polygon']
+                if values :
+                    self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                                                    minOccurs=minOccurs,
+                                                    type=types.StringType)
+                    self._inputs['Input%s' % i].values = values
+                else :
+                    self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                        minOccurs=minOccurs, formats = [{'mimeType':'text/xml'}])
+                        
             elif parm.__class__.__name__ == 'ParameterRaster':
-                self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
-                    formats = [{'mimeType':'image/tiff'}])
+                if rasterLayers :
+                    self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                                                    minOccurs=minOccurs,
+                                                    type=types.StringType)
+                    self._inputs['Input%s' % i].values = [l['name'] for l in rasterLayers]
+                else :
+                    self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                        minOccurs=minOccurs, formats = [{'mimeType':'image/tiff'}])
+                        
             elif parm.__class__.__name__ == 'ParameterTable':
                 self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
-                    formats = [{'mimeType':'text/csv'}])
+                    minOccurs=minOccurs, formats = [{'mimeType':'text/csv'}])
+                    
             elif parm.__class__.__name__ == 'ParameterExtent':
                 self._inputs['Input%s' % i] = self.addBBoxInput(parm.name, parm.description,
                     minOccurs=minOccurs)
+                    
             elif parm.__class__.__name__ == 'ParameterSelection':
                 self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
                                                 minOccurs=minOccurs,
                                                 type=types.StringType,
                                                 default=getattr(parm, 'default', None))
                 self._inputs['Input%s' % i].values = parm.options
+                
             elif parm.__class__.__name__ == 'ParameterRange':
                 tokens = self.value.split(',')
                 n1 = float(tokens[0])
@@ -139,6 +194,7 @@ def QGISProcessFactory(alg_name):
                                                 type=types.FloatType,
                                                 default=n1)
                 self._inputs['Input%s' % i].values = ((n1,n2))
+                
             else:
                 type = types.StringType
                 if parm.__class__.__name__ == 'ParameterBoolean':
@@ -200,18 +256,51 @@ def QGISProcessFactory(alg_name):
             v = getattr(self, k)
             parm = self.alg.getParameterFromName( v.identifier )
             if parm.__class__.__name__ == 'ParameterVector':
-                fileName = v.getValue()
-                logging.info( v.identifier+': '+str(fileName) )
-                fileInfo = QFileInfo( fileName )
-                # move fileName to fileName.gml for ogr
-                with open( fileName, 'r' ) as f :
-                    o = open( fileName+'.gml', 'w' )
-                    o.write( f.read() )
-                    o.close()
-                # get layer
-                layer = QgsVectorLayer( fileName+'.gml', fileInfo.baseName(), 'ogr' )
-                mlr.addMapLayer( layer, False )
-                args[v.identifier] = fileName+'.gml'
+                values = []
+                if vectorLayers and ParameterVector.VECTOR_TYPE_ANY in parm.shapetype :
+                    values = [l['name'] for l in vectorLayers]
+                elif vectorLayers :
+                    if ParameterVector.VECTOR_TYPE_POINT in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Point']
+                    if ParameterVector.VECTOR_TYPE_LINE in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Line']
+                    if ParameterVector.VECTOR_TYPE_POLYGON in parm.shapetype :
+                        values += [l['name'] for l in vectorLayers if l['geometry'] == 'Polygon']
+                if values :
+                    layerName = v.getValue() 
+                    values = [l for l in values if l['name'] == layerName]
+                    l = values[0]
+                    layer = QgsVectorLayer( l['datasource'], l['name'], l['provider'] )
+                    mlr.addMapLayer( layer, False )
+                    args[v.identifier] = l['datasource']
+                else :
+                    fileName = v.getValue()
+                    fileInfo = QFileInfo( fileName )
+                    # move fileName to fileName.gml for ogr
+                    with open( fileName, 'r' ) as f :
+                        o = open( fileName+'.gml', 'w' )
+                        o.write( f.read() )
+                        o.close()
+                    import shutil
+                    shutil.copy2(fileName+'.gml', '/tmp/test.gml' )
+                    # get layer
+                    layer = QgsVectorLayer( fileName+'.gml', fileInfo.baseName(), 'ogr' )
+                    mlr.addMapLayer( layer, False )
+                    args[v.identifier] = fileName+'.gml'
+            elif parm.__class__.__name__ == 'ParameterRaster':
+                if rasterLayers :
+                    layerName = v.getValue() 
+                    values = [l for l in rasterLayers if l['name'] == layerName]
+                    l = values[0]
+                    layer = QgsRasterLayer( l['datasource'], l['name'], l['provider'] )
+                    mlr.addMapLayer( layer, False )
+                    args[v.identifier] = l['datasource']
+                else :
+                    fileName = v.getValue()
+                    fileInfo = QFileInfo( fileName )
+                    layer = QgsRasterLayer( fileName, fileInfo.baseName(), 'gdal' )
+                    mlr.addMapLayer( layer, False )
+                    args[v.identifier] = fileName+'.gml'
             else:
                 args[v.identifier] = v.getValue()
         # Adds None for output parameter(s)
@@ -243,7 +332,7 @@ def QGISProcessFactory(alg_name):
                 # define the output GML file path
                 outputFile = os.path.join( outputInfo.absolutePath(), outputInfo.baseName()+'.gml' )
                 # write the output GML file
-                error = QgsVectorFileWriter.writeAsVectorFormat( outputLayer, outputFile, 'utf-8', None, 'GML', False, None, ['XSISCHEMAURI=http://schemas.opengis.net/gml/2.1.2/feature.xsd'] )
+                error = QgsVectorFileWriter.writeAsVectorFormat( outputLayer, outputFile, 'utf-8', outputLayer.crs(), 'GML', False, None, ['XSISCHEMAURI=http://schemas.opengis.net/gml/2.1.2/feature.xsd'] )
                 args[v.identifier] = outputFile
             else:
                 args[v.identifier] = result.get(v.identifier, None)
@@ -253,23 +342,28 @@ def QGISProcessFactory(alg_name):
         return
 
     try:
-	new_class = classobj( '%sProcess' % class_name, (WPSProcess, ), {
-            '__init__' :  process_init,
-	    'execute' : execute,
-	    'params' : [],
-	    'alg' : alg,
-	    '_inputs' : {},
-	    '_outputs' : {}
-	})
-	return new_class
+	    new_class = classobj( '%sProcess' % class_name, (WPSProcess, ), {
+                '__init__' :  process_init,
+	        'execute' : execute,
+	        'params' : [],
+	        'alg' : alg,
+	        '_inputs' : {},
+	        '_outputs' : {}
+	    })
+	    return new_class
     except TypeError, e:
-        #logging.info('TypeError %sProcess: %s' % (class_name, e))
+        logging.info('TypeError %sProcess: %s' % (class_name, e))
         return None
 
 # get the providers to publish
 providerList = config.getConfigValue( 'qgis', 'providers' )
 if providerList :
     providerList = providerList.split(',')
+    
+# get the algorithm list to publish
+algList = config.getConfigValue( 'qgis', 'algs' )
+if algList :
+    algList = algList.split(',')
 
 # get the algorithm filter
 # Set text to None to add all the QGIS Processing providers
@@ -312,6 +406,8 @@ for provider in Processing.providers:
     # sort algorithms
     sortedlist = sorted(provider.algs, key=lambda alg: alg.name)
     for alg in sortedlist:
+        if algList and str( alg.commandLineName() ) not in algList :
+            continue;
         # filter with text
         if not algsFilter or algsFilter.lower() in alg.name.lower() or algsFilter.lower() in str( alg.commandLineName() ):
             #logging.info(alg.commandLineName())
