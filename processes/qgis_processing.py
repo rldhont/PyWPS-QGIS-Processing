@@ -96,9 +96,11 @@ def QGISProcessFactory(alg_name):
             l= {'type':ml.attributes["type"].value,
                 'name':ml.getElementsByTagName('layername')[0].childNodes[0].data,
                 'datasource':ml.getElementsByTagName('datasource')[0].childNodes[0].data,
-                'provider':ml.getElementsByTagName('provider')[0].childNodes[0].data
+                'provider':ml.getElementsByTagName('provider')[0].childNodes[0].data,
+                'crs':ml.getElementsByTagName('srs')[0].getElementsByTagName('authid')[0].childNodes[0].data,
+                'proj4':ml.getElementsByTagName('srs')[0].getElementsByTagName('proj4')[0].childNodes[0].data
             }
-            if l['provider'] in ['ogr','gdal'] :
+            if l['provider'] in ['ogr','gdal'] and str(l['datasource']).startswith('.'):
                 l['datasource'] = os.path.abspath( os.path.join( projectsFolder, l['datasource'] ) )
                 if not os.path.exists( l['datasource'] ) :
                     continue
@@ -152,34 +154,34 @@ def QGISProcessFactory(alg_name):
                     if ParameterVector.VECTOR_TYPE_POLYGON in parm.shapetype :
                         values += [l['name'] for l in vectorLayers if l['geometry'] == 'Polygon']
                 if values :
-                    self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                    self._inputs['Input%s' % i] = self.addLiteralInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                                                     minOccurs=minOccurs,
                                                     type=types.StringType)
                     self._inputs['Input%s' % i].values = values
                 else :
-                    self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                    self._inputs['Input%s' % i] = self.addComplexInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                         minOccurs=minOccurs, formats = [{'mimeType':'text/xml'}])
                         
             elif parm.__class__.__name__ == 'ParameterRaster':
                 if rasterLayers :
-                    self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                    self._inputs['Input%s' % i] = self.addLiteralInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                                                     minOccurs=minOccurs,
                                                     type=types.StringType)
                     self._inputs['Input%s' % i].values = [l['name'] for l in rasterLayers]
                 else :
-                    self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                    self._inputs['Input%s' % i] = self.addComplexInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                         minOccurs=minOccurs, formats = [{'mimeType':'image/tiff'}])
                         
             elif parm.__class__.__name__ == 'ParameterTable':
-                self._inputs['Input%s' % i] = self.addComplexInput(parm.name, parm.description,
+                self._inputs['Input%s' % i] = self.addComplexInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                     minOccurs=minOccurs, formats = [{'mimeType':'text/csv'}])
                     
             elif parm.__class__.__name__ == 'ParameterExtent':
-                self._inputs['Input%s' % i] = self.addBBoxInput(parm.name, parm.description,
+                self._inputs['Input%s' % i] = self.addBBoxInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                     minOccurs=minOccurs)
                     
             elif parm.__class__.__name__ == 'ParameterSelection':
-                self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                self._inputs['Input%s' % i] = self.addLiteralInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                                                 minOccurs=minOccurs,
                                                 type=types.StringType,
                                                 default=getattr(parm, 'default', None))
@@ -189,7 +191,7 @@ def QGISProcessFactory(alg_name):
                 tokens = self.value.split(',')
                 n1 = float(tokens[0])
                 n2 = float(tokens[1])
-                self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                self._inputs['Input%s' % i] = self.addLiteralInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                                                 minOccurs=minOccurs,
                                                 type=types.FloatType,
                                                 default=n1)
@@ -201,7 +203,7 @@ def QGISProcessFactory(alg_name):
                     type = types.BooleanType
                 elif  parm.__class__.__name__ =='ParameterNumber':
                     type = types.FloatType
-                self._inputs['Input%s' % i] = self.addLiteralInput(parm.name, parm.description,
+                self._inputs['Input%s' % i] = self.addLiteralInput(escape(parm.name), '<![CDATA[' + parm.description + ']]>',
                                                 minOccurs=minOccurs,
                                                 type=type,
                                                 default=getattr(parm, 'default', None))
@@ -272,7 +274,7 @@ def QGISProcessFactory(alg_name):
                     l = values[0]
                     layer = QgsVectorLayer( l['datasource'], l['name'], l['provider'] )
                     mlr.addMapLayer( layer, False )
-                    args[v.identifier] = l['datasource']
+                    args[v.identifier] = layer
                 else :
                     fileName = v.getValue()
                     fileInfo = QFileInfo( fileName )
@@ -286,21 +288,30 @@ def QGISProcessFactory(alg_name):
                     # get layer
                     layer = QgsVectorLayer( fileName+'.gml', fileInfo.baseName(), 'ogr' )
                     mlr.addMapLayer( layer, False )
-                    args[v.identifier] = fileName+'.gml'
+                    args[v.identifier] = layer
             elif parm.__class__.__name__ == 'ParameterRaster':
                 if rasterLayers :
                     layerName = v.getValue() 
                     values = [l for l in rasterLayers if l['name'] == layerName]
                     l = values[0]
                     layer = QgsRasterLayer( l['datasource'], l['name'], l['provider'] )
+                    crs = l['crs']
+                    qgsCrs = None
+                    if str(crs).startswith('USER:') :
+                        qgsCrs = crs = QgsCoordinateReferenceSystem()
+                        qgsCrs.createFromProj4( str(l['proj4']) )
+                    else :
+                        qgsCrs = QgsCoordinateReferenceSystem(crs, QgsCoordinateReferenceSystem.EpsgCrsId)
+                    if qgsCrs :
+                        layer.setCrs( qgsCrs )
                     mlr.addMapLayer( layer, False )
-                    args[v.identifier] = l['datasource']
+                    args[v.identifier] = layer
                 else :
                     fileName = v.getValue()
                     fileInfo = QFileInfo( fileName )
                     layer = QgsRasterLayer( fileName, fileInfo.baseName(), 'gdal' )
                     mlr.addMapLayer( layer, False )
-                    args[v.identifier] = fileName+'.gml'
+                    args[v.identifier] = layer
             else:
                 args[v.identifier] = v.getValue()
         # Adds None for output parameter(s)
@@ -332,7 +343,7 @@ def QGISProcessFactory(alg_name):
                 # define the output GML file path
                 outputFile = os.path.join( outputInfo.absolutePath(), outputInfo.baseName()+'.gml' )
                 # write the output GML file
-                error = QgsVectorFileWriter.writeAsVectorFormat( outputLayer, outputFile, 'utf-8', outputLayer.crs(), 'GML', False, None, ['XSISCHEMAURI=http://schemas.opengis.net/gml/2.1.2/feature.xsd'] )
+                error = QgsVectorFileWriter.writeAsVectorFormat( outputLayer, outputFile, 'utf-8', None, 'GML', False, None, ['XSISCHEMAURI=http://schemas.opengis.net/gml/2.1.2/feature.xsd'] )
                 args[v.identifier] = outputFile
             else:
                 args[v.identifier] = result.get(v.identifier, None)
@@ -352,7 +363,7 @@ def QGISProcessFactory(alg_name):
 	    })
 	    return new_class
     except TypeError, e:
-        logging.info('TypeError %sProcess: %s' % (class_name, e))
+        #logging.info('TypeError %sProcess: %s' % (class_name, e))
         return None
 
 # get the providers to publish
