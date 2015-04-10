@@ -287,8 +287,11 @@ def QGISProcessFactory(alg_name):
                     shutil.copy2(fileName+'.gml', '/tmp/test.gml' )
                     # get layer
                     layer = QgsVectorLayer( fileName+'.gml', fileInfo.baseName(), 'ogr' )
+                    pr = layer.dataProvider()
+                    e = layer.extent()
                     mlr.addMapLayer( layer, False )
                     args[v.identifier] = layer
+                    
             elif parm.__class__.__name__ == 'ParameterRaster':
                 if rasterLayers :
                     layerName = v.getValue() 
@@ -312,6 +315,10 @@ def QGISProcessFactory(alg_name):
                     layer = QgsRasterLayer( fileName, fileInfo.baseName(), 'gdal' )
                     mlr.addMapLayer( layer, False )
                     args[v.identifier] = layer
+                    
+            elif parm.__class__.__name__ == 'ParameterExtent':
+                coords = v.getValue().coords
+                args[v.identifier] = str(coords[0][0])+','+str(coords[1][0])+','+str(coords[0][1])+','+str(coords[1][1])
             else:
                 args[v.identifier] = v.getValue()
         # Adds None for output parameter(s)
