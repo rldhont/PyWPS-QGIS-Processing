@@ -34,22 +34,6 @@ from pywps.Process import WPSProcess
 from xml.dom import minidom
 from xml.sax.saxutils import escape
 
-# Get or define user_folder
-user_folder = os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) )
-if config.config.has_option( 'qgis', 'user_folder' ) :
-    user_folder = config.getConfigValue( 'qgis', 'user_folder' )
-
-# init QgsApplication
-QgsApplication( sys.argv, False, user_folder )
-# supply path to where is your qgis installed
-QgsApplication.setPrefixPath( config.getConfigValue("qgis","prefix"), True )
-
-# load providers
-QgsApplication.initQgis()
-
-# initialize application
-qa = QApplication( sys.argv )
-
 from processing.core.Processing import Processing
 from processing.core.ProcessingConfig import ProcessingConfig, Setting
 from processing.core.parameters import *
@@ -333,6 +317,8 @@ def QGISProcessFactory(alg_name):
         # if runalg failed return exception message
         if not tAlg:
             return 'Error in processing'
+        # clear map layer registry
+        mlr.removeAllMapLayers()
         # get result
         result = tAlg.getOutputValuesAsDictionary()
         for k in self._outputs:
@@ -352,6 +338,13 @@ def QGISProcessFactory(alg_name):
                 # write the output GML file
                 error = QgsVectorFileWriter.writeAsVectorFormat( outputLayer, outputFile, 'utf-8', None, 'GML', False, None, ['XSISCHEMAURI=http://schemas.opengis.net/gml/2.1.2/feature.xsd'] )
                 args[v.identifier] = outputFile
+                # add output layer to map layer registry
+                #outputLayer = QgsVectorLayer( outputFile, v.identifier, 'ogr' )
+                #mlr.addMapLayer( outputLayer )
+            elif parm.__class__.__name__ == 'OutputRaster':
+                if not outputName :
+                  return 'No output file'
+                args[v.identifier] = result.get(v.identifier, None)
             else:
                 args[v.identifier] = result.get(v.identifier, None)
         for k in self._outputs:

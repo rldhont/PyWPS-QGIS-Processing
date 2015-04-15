@@ -53,10 +53,35 @@ __version__ = "3.2.2"
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+
+# first qgis
+from qgis.core import *
+# next Qt
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+
 import pywps
+from pywps import config
 from pywps.Exceptions import *
 
-import sys,os,traceback
+import sys,os,traceback,inspect
+
+# Get or define user_folder
+config.loadConfiguration()
+user_folder = os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) )
+if config.config.has_option( 'qgis', 'user_folder' ) :
+    user_folder = config.getConfigValue( 'qgis', 'user_folder' )
+
+# init QgsApplication
+QgsApplication( sys.argv, False, user_folder )
+# supply path to where is your qgis installed
+QgsApplication.setPrefixPath( config.getConfigValue("qgis","prefix"), True )
+
+# load providers
+QgsApplication.initQgis()
+
+# initialize application
+qa = QApplication( sys.argv )
 
 
 # get the request method and inputs

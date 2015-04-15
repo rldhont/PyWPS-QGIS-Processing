@@ -45,7 +45,7 @@ import time,tempfile,re,types, base64, traceback,string
 from shutil import copyfile as COPY
 from shutil import rmtree as RMTREE
 import logging
-from pywps.Wps.Execute import UMN
+from pywps.Wps.Execute import UMN,QGIS
 import pickle, subprocess
 
 from xml.sax.saxutils import escape
@@ -1151,6 +1151,12 @@ class Execute(Request):
                     self.umn.save()
                     if owsreference:
                         templateOutput["reference"] = escape(owsreference)
+                
+                #Get QGIS-Server output reference
+                qgis = QGIS.QGIS(self.process, self.getSessionId())
+                owsreference = qgis.getReference(output)
+                if owsreference:
+                    templateOutput["reference"] = escape(owsreference)
 
                 
                 templateOutput["mimetype"] = output.format["mimetype"]
