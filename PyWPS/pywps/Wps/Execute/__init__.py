@@ -1153,10 +1153,11 @@ class Execute(Request):
                         templateOutput["reference"] = escape(owsreference)
                 
                 #Get QGIS-Server output reference
-                qgis = QGIS.QGIS(self.process, self.getSessionId())
-                owsreference = qgis.getReference(output)
-                if owsreference:
-                    templateOutput["reference"] = escape(owsreference)
+                if config.getConfigValue("qgis","qgisserveraddress"):
+                    qgis = QGIS.QGIS(self.process, self.getSessionId())
+                    owsreference = qgis.getReference(output)
+                    if owsreference:
+                        templateOutput["reference"] = escape(owsreference)
 
                 
                 templateOutput["mimetype"] = output.format["mimetype"]
