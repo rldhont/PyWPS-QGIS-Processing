@@ -66,24 +66,6 @@ from pywps.Exceptions import *
 
 import sys,os,traceback,inspect
 
-# Get or define user_folder
-config.loadConfiguration()
-user_folder = os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) )
-if config.config.has_option( 'qgis', 'user_folder' ) :
-    user_folder = config.getConfigValue( 'qgis', 'user_folder' )
-
-# init QgsApplication
-QgsApplication( sys.argv, False, user_folder )
-# supply path to where is your qgis installed
-QgsApplication.setPrefixPath( config.getConfigValue("qgis","prefix"), True )
-
-# load providers
-QgsApplication.initQgis()
-
-# initialize application
-qa = QApplication( sys.argv )
-
-
 # get the request method and inputs
 method = os.getenv("REQUEST_METHOD")
 if not method:  # set standard method
@@ -108,6 +90,22 @@ else:
 # create the WPS object
 wps = None
 try:
+    # Get or define user_folder
+    config.loadConfiguration()
+    user_folder = os.path.dirname( os.path.abspath( inspect.getfile( inspect.currentframe() ) ) )
+    if config.config.has_option( 'qgis', 'user_folder' ) :
+        user_folder = config.getConfigValue( 'qgis', 'user_folder' )
+
+    # init QgsApplication
+    QgsApplication( sys.argv, False, user_folder )
+    # supply path to where is your qgis installed
+    QgsApplication.setPrefixPath( config.getConfigValue("qgis","prefix"), True )
+
+    # load providers
+    QgsApplication.initQgis()
+
+    # initialize application
+    qa = QApplication( sys.argv )
     wps = pywps.Pywps(method)
     if wps.parseRequest(inputQuery):
         pywps.debug(wps.inputs)
@@ -117,6 +115,8 @@ try:
             # print only to standard out
                 pywps.response.response(wps.response,
                     sys.stdout,wps.parser.soapVersion,wps.parser.isSoap,wps.parser.isSoapExecute, wps.request.contentType)
+    QgsApplication.exitQgis()
+    qa.exit()
 
 except WPSException,e:
     traceback.print_exc(file=pywps.logFile)

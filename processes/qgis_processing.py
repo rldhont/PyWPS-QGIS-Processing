@@ -97,10 +97,15 @@ def QGISProcessFactory(alg_name):
     def process_init(self):
         # Automatically init the process attributes
         # Start with help for description
-        isText, help = self.alg.help()
-        if not isText and help is not None:
-           with open(help, 'r') as helpFile :
-              help = helpFile.read()
+        #isText, help = self.alg.help()
+        #logging.info( help )
+        #if not isText and help is not None:
+        #   with open(help, 'r') as helpFile :
+        #      help = helpFile.read()
+        # because of a print in ModelerAlgorithm
+        # get help can't be used
+        # and because of some changes in help method too
+        help = None
         # Init WPS Process
         WPSProcess.__init__(self,
             identifier=alg_name, # must be same, as filename

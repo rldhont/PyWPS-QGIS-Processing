@@ -14,7 +14,8 @@
 export DISPLAY=:99
 # Python path to the QGIS python share and QGIS python plugins share
 # you can add your plugins directory
-export PYTHONPATH=/usr/share/qgis/python:/usr/share/qgis/python/plugins #:/home/user/.qgis2/python/plugins
+#export PYTHONPATH=/usr/share/qgis/python:/usr/share/qgis/python/plugins
+export PYTHONPATH=/usr/share/qgis/python:/home/user/.qgis2/python/plugins:/usr/share/qgis/python/plugins
 # Ld Library Path
 export LD_LIBRARY_PATH=/usr/lib #:/path/to/qgis/lib if not default
 # PyWPS config
