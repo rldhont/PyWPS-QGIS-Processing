@@ -84,10 +84,20 @@ def QGISProcessFactory(alg_name):
                 'crs':ml.getElementsByTagName('srs')[0].getElementsByTagName('authid')[0].childNodes[0].data,
                 'proj4':ml.getElementsByTagName('srs')[0].getElementsByTagName('proj4')[0].childNodes[0].data
             }
+            # Update relative path
             if l['provider'] in ['ogr','gdal'] and str(l['datasource']).startswith('.'):
                 l['datasource'] = os.path.abspath( os.path.join( projectsFolder, l['datasource'] ) )
                 if not os.path.exists( l['datasource'] ) :
                     continue
+            elif l['provider'] in ['gdal'] and str(l['datasource']).startswith('NETCDF:'):
+                theURIParts = l['datasource'].split( ":" );
+                src = theURIParts[1]
+                src.replace( "\"", "" );
+                if src.startswith('.') :
+                    src = os.path.abspath( os.path.join( projectsFolder, src ) )
+                theURIParts[1] = "\"" + src + "\""
+                l['datasource'] = ':'.join( theURIParts )
+                
             if l['type'] == "raster" :
                 rasterLayers.append( l )
             elif l['type'] == "vector" :
@@ -306,8 +316,8 @@ def QGISProcessFactory(alg_name):
                     args[v.identifier] = layer
                     
             elif parm.__class__.__name__ == 'ParameterExtent':
-                coords = v.getValue().coords
-                args[v.identifier] = str(coords[0][0])+','+str(coords[1][0])+','+str(coords[0][1])+','+str(coords[1][1])
+                coords = v.getValue().getValue()
+                args[v.identifier] = ','.join( coords )
             else:
                 args[v.identifier] = v.getValue()
         # Adds None for output parameter(s)
