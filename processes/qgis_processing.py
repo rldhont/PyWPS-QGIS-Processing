@@ -92,10 +92,10 @@ def QGISProcessFactory(alg_name):
             elif l['provider'] in ['gdal'] and str(l['datasource']).startswith('NETCDF:'):
                 theURIParts = l['datasource'].split( ":" );
                 src = theURIParts[1]
-                src.replace( "\"", "" );
+                src = src.replace( '"', '' )
                 if src.startswith('.') :
                     src = os.path.abspath( os.path.join( projectsFolder, src ) )
-                theURIParts[1] = "\"" + src + "\""
+                theURIParts[1] = '"' + src + '"'
                 l['datasource'] = ':'.join( theURIParts )
                 
             if l['type'] == "raster" :
