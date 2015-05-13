@@ -316,8 +316,8 @@ def QGISProcessFactory(alg_name):
                     args[v.identifier] = layer
                     
             elif parm.__class__.__name__ == 'ParameterExtent':
-                coords = v.getValue().getValue()
-                args[v.identifier] = ','.join( coords )
+                coords = v.getValue().coords
+                args[v.identifier] = str(coords[0][0])+','+str(coords[1][0])+','+str(coords[0][1])+','+str(coords[1][1])
             else:
                 args[v.identifier] = v.getValue()
         # Adds None for output parameter(s)
