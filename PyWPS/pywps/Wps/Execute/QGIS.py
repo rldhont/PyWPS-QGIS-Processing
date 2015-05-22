@@ -84,16 +84,8 @@ class QGIS:
         
     def getMapServerWCS(self,output):
         """Get the URL for mapserver WCS request of the output"""
-        return urllib2.quote(config.getConfigValue("qgis","qgisserveraddress")+
-                "?map="+self.projectFileName+
-                "&SERVICE=WCS"+ "&REQUEST=GetCoverage"+ "&VERSION=1.0.0"+
-                "&COVERAGE="+output.identifier+"&CRS="+output.projection.replace("+init=","")+
-                "&BBOX=%s,%s,%s,%s"%(output.bbox[0],output.bbox[1],output.bbox[2],output.bbox[3])+
-                "&HEIGHT=%s" %(output.height)+"&WIDTH=%s"%(output.width)+"&FORMAT=%s"%output.format["mimetype"])
+        return config.getConfigValue("qgis","qgisserveraddress")+"?map="+self.projectFileName+"&SERVICE=WCS"+ "&REQUEST=GetCoverage"+ "&VERSION=1.0.0"+"&COVERAGE="+output.identifier+"&CRS="+output.projection.replace("+init=","")+"&BBOX=%s,%s,%s,%s"%(output.bbox[0],output.bbox[1],output.bbox[2],output.bbox[3])+"&HEIGHT=%s" %(output.height)+"&WIDTH=%s"%(output.width)+"&FORMAT=%s"%output.format["mimetype"])
 
     def getMapServerWFS(self,output):
         """Get the URL for mapserver WFS request of the output"""
-        return urllib2.quote(config.getConfigValue("qgis","qgisserveraddress")+
-                "?map="+self.projectFileName+
-                "&SERVICE=WFS"+ "&REQUEST=GetFeature"+ "&VERSION=1.0.0"+
-                "&TYPENAME="+output.identifier)
+        return config.getConfigValue("qgis","qgisserveraddress")+"?map="+self.projectFileName+"&SERVICE=WFS"+ "&REQUEST=GetFeature"+ "&VERSION=1.0.0"+"&TYPENAME="+output.identifier
