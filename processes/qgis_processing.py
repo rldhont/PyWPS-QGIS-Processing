@@ -357,9 +357,10 @@ def QGISProcessFactory(alg_name):
                 #outputLayer = QgsVectorLayer( outputFile, v.identifier, 'ogr' )
                 #mlr.addMapLayer( outputLayer )
             elif parm.__class__.__name__ == 'OutputRaster':
+                outputName = result.get(v.identifier, None)
                 if not outputName :
                   return 'No output file'
-                args[v.identifier] = result.get(v.identifier, None)
+                args[v.identifier] = outputName
             else:
                 args[v.identifier] = result.get(v.identifier, None)
         for k in self._outputs:
