@@ -48,6 +48,7 @@ class QGIS:
     def getReference(self,output):
         
         mlr = QgsMapLayerRegistry.instance()
+        logging.info(output.identifier+' '+output.value)
         layersByName = mlr.mapLayersByName( output.identifier )
         outputLayer = None
         if not layersByName :
@@ -59,7 +60,6 @@ class QGIS:
                 mlr.addMapLayer( outputLayer )
         else :
             outputLayer = layersByName[0]
-        
         treeRoot = self.project.layerTreeRoot()
         if not treeRoot.findLayer( outputLayer.id() ) :
             treeRoot.addLayer( outputLayer )
@@ -75,6 +75,11 @@ class QGIS:
             return self.getMapServerWFS(output)
                 
         elif outputLayer.type() == QgsMapLayer.RasterLayer :
+            output.projection = outputLayer.crs().authid()
+            output.height = outputLayer.height()
+            output.width = outputLayer.width()
+            outputExtent = outputLayer.extent()
+            output.bbox = [outputExtent.xMinimum(), outputExtent.yMinimum(), outputExtent.xMaximum(), outputExtent.yMaximum()]
             WCSLayers = self.project.readListEntry( "WCSLayers", "/" )[0]
             if outputLayer.id() not in WCSLayers :
                 WCSLayers.append( outputLayer.id() )
