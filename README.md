@@ -33,7 +33,7 @@ PyWPS-QGIS-Processing comes with :
 
 Update **pywps.cgi** to adapt it to your PyWPS and QGIS install :
 
-* **DISPLAY**, you need to create a virtual display for example with Xvfd
+* **DISPLAY**, you need to create a virtual display for example with Xvfb
 * **PYTHONPATH** to your QGIS install and the plugins directories
 * **LD_LIBRARY_PATH** to your QGIS install
 * **PYWPS_CFG** to the path where you put the PyWPS-QGIS-Processing pywps.cfg
